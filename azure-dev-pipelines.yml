@@ -1,0 +1,86 @@
+# Starter pipeline
+
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+trigger:
+- dev
+
+pool:
+  vmImage: ubuntu-latest
+variables:
+- group: dev-tf
+stages:
+- stage: build
+  jobs:
+    - deployment: terraform
+      environment: dev-deploy
+      displayName: 'Change Infrastructure'
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+              - checkout: self
+              - task: TerraformInstaller@0
+                inputs:
+                  terraformVersion: 'latest'
+              - task: TerraformTaskV3@3
+                inputs:
+                  provider: 'aws'
+                  command: 'init'
+                  backendServiceAWS: 'EmpresaX-dev-tf'
+                  backendAWSBucketName: 'repotoolsEmpresaXiac'
+                  backendAWSKey: 'EmpresaXtfstate'
+              - task: TerraformTaskV3@3
+                inputs:
+                  provider: 'aws'
+                  command: 'custom'
+                  customCommand: 'workspace'
+                  commandOptions: 'select default'
+                  outputTo: 'console'
+                  environmentServiceNameAWS: 'EmpresaX-dev-tf'
+              
+              - task: TerraformTaskV3@3
+                name: PLAN
+                inputs:
+                  provider: 'aws'
+                  command: 'plan'
+                  commandOptions: '-var-file=./tfvars/dev.tfvars'
+                  environmentServiceNameAWS: 'EmpresaX-dev-tf'
+              
+- stage: deploy
+  jobs:
+    - deployment: terraform
+      condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
+      environment: dev-deploy
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+              - checkout: self
+              - task: TerraformInstaller@0
+                inputs:
+                  terraformVersion: 'latest'
+              - task: TerraformTaskV3@3
+                inputs:
+                  provider: 'aws'
+                  command: 'init'
+                  backendServiceAWS: 'EmpresaX-dev-tf'
+                  backendAWSBucketName: 'repotoolsEmpresaXiac'
+                  backendAWSKey: 'EmpresaXtfstate'
+              - task: TerraformTaskV3@3
+                inputs:
+                  provider: 'aws'
+                  command: 'custom'
+                  customCommand: 'workspace'
+                  commandOptions: 'select dev'
+                  outputTo: 'console'
+                  environmentServiceNameAWS: 'EmpresaX-dev-tf'
+              - task: TerraformTaskV3@3
+                name: Apply
+                inputs:
+                  provider: 'aws'
+                  command: 'apply'
+                  commandOptions: '-var-file=./tfvars/dev.tfvars'
+                  environmentServiceNameAWS: 'EmpresaX-dev-tf'

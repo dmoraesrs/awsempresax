@@ -1,0 +1,49 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+    name: ingress-hosts
+    annotations:
+      cert-manager.io/cluster-issuer: "letsecrypt-prod"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - "skauth-dev.skymed.app.br"
+      secretName: "skauth-dev-tls"
+    - hosts:
+        - "skanestesio-dev.skymed.app.br"
+      secretName: "skanestesio-dev-tls"
+    - hosts:
+        - "sxinfinity-dev.skymed.app.br"
+      secretName: "sxinfinity-dev-tls"
+  rules:
+  - host: skauth-dev.skymed.app.br
+    http:
+      paths:
+      - pathType: "Prefix"
+        path: "/"
+        backend:
+          service:
+            name: skauth
+            port: 
+              number: 8083
+  - host: skanestesio-dev.skymed.app.br
+    http:
+      paths:
+      - pathType: "Prefix"
+        path: "/"
+        backend:
+          service:
+            name: skanestesio
+            port: 
+              number: 8081
+  - host: sxinfinity-dev.skymed.app.br
+    http:
+      paths:
+      - pathType: "Prefix"
+        path: "/"
+        backend:
+          service:
+            name: sxinfinity
+            port: 
+              number: 8082

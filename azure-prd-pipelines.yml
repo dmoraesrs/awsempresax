@@ -1,0 +1,86 @@
+# Starter pipeline
+
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+trigger:
+- main
+
+pool:
+  vmImage: ubuntu-latest
+variables:
+- group: prd-tf
+stages:
+- stage: build
+  jobs:
+    - deployment: terraform
+      environment: prd-deploy
+      displayName: 'Change Infrastructure'
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+              - checkout: self
+              - task: TerraformInstaller@0
+                inputs:
+                  terraformVersion: 'latest'
+              - task: TerraformTaskV3@3
+                inputs:
+                  provider: 'aws'
+                  command: 'init'
+                  backendServiceAWS: 'EmpresaX-prd-tf'
+                  backendAWSBucketName: 'repotoolsEmpresaXiac'
+                  backendAWSKey: 'EmpresaXtfstate'
+              - task: TerraformTaskV3@3
+                inputs:
+                  provider: 'aws'
+                  command: 'custom'
+                  customCommand: 'workspace'
+                  commandOptions: 'select prod'
+                  outputTo: 'console'
+                  environmentServiceNameAWS: 'EmpresaX-prd-tf'
+              
+              - task: TerraformTaskV3@3
+                name: PLAN
+                inputs:
+                  provider: 'aws'
+                  command: 'plan'
+                  commandOptions: '-var-file=./tfvars/prd.tfvars'
+                  environmentServiceNameAWS: 'EmpresaX-prd-tf'
+              
+- stage: deploy
+  jobs:
+    - deployment: terraform
+      condition: and(succeeded(), ne(variables['Build.Reason'], 'PullRequest'))
+      environment: prd-deploy-approval
+      strategy:
+        runOnce:
+          deploy:
+            steps:
+              - checkout: self
+              - task: TerraformInstaller@0
+                inputs:
+                  terraformVersion: 'latest'
+              - task: TerraformTaskV3@3
+                inputs:
+                  provider: 'aws'
+                  command: 'init'
+                  backendServiceAWS: 'EmpresaX-prd-tf'
+                  backendAWSBucketName: 'repotoolsEmpresaXiac'
+                  backendAWSKey: 'EmpresaXtfstate'
+              - task: TerraformTaskV3@3
+                inputs:
+                  provider: 'aws'
+                  command: 'custom'
+                  customCommand: 'workspace'
+                  commandOptions: 'select prod'
+                  outputTo: 'console'
+                  environmentServiceNameAWS: 'EmpresaX-prd-tf'
+              - task: TerraformTaskV3@3
+                name: Apply
+                inputs:
+                  provider: 'aws'
+                  command: 'apply'
+                  commandOptions: '-var-file=./tfvars/prd.tfvars'
+                  environmentServiceNameAWS: 'EmpresaX-prd-tf'
